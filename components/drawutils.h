@@ -12,7 +12,36 @@
 #include <chrono>
 #include <vector>
 
+#include "bmp_decode.h"
+
 struct layout_struct;
+
+uint32_t merge_to_rgb(uint8_t r, uint8_t g, uint8_t b) {
+  return (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | static_cast<uint32_t>(b);
+}
+
+void draw_image(Display* display, Window window, GC gc, unsigned int anchor_x, unsigned int anchor_y, std::vector<std::vector<std::array<uint8_t, 3>>> pixel_data) {
+  
+  size_t width = pixel_data[0].size();
+  size_t height = pixel_data.size();
+    
+  for(int i = 0; i < width; ++i) {
+    
+    for(int j = 0; j < height; ++j) {
+	
+      uint32_t color = merge_to_rgb(pixel_data[i][j][0],pixel_data[i][j][2],pixel_data[i][j][2]);
+      
+      XSetForeground(display, gc, color);
+
+      XDrawPoint(display, window, gc, j + anchor_x , i + anchor_y);
+      
+    }
+
+  }
+
+  return;
+  
+}
 
 void draw_box(Display* display, Window window, GC gc, unsigned int anchor_x, unsigned int anchor_y, unsigned int size_x, unsigned int size_y) {
 
@@ -102,8 +131,6 @@ void draw_dynamic_window_border(Display* display, Window window, GC gc, unsigned
   XWindowAttributes window_attributes;
 
   if (XGetWindowAttributes(display, window, &window_attributes)) {
-
-    std::cout << window_attributes.width << " - width | " << window_attributes.height << " - height " << std::endl;
 
     for(int i = 0; i<width; ++i) {
 

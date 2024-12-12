@@ -23,6 +23,12 @@ public:
 
   bool shutdown = false;
 
+  bool draw_cooldown = false;
+
+  bool want_draw = false;
+  
+  std::vector<std::vector<std::array<uint8_t, 3>>> pixel_data;
+  
   XFontStruct* font;
 
   layout_struct *active_layout;
@@ -63,6 +69,12 @@ public:
 
 	break;
 
+      case IMAGE:      
+
+	draw_image(display, window, gc, active_layout->anchor_x[i], active_layout->anchor_y[i], read_bmp(active_layout->label[i]));
+	
+	break;
+
       }
 
       XFlush(display);
@@ -71,6 +83,32 @@ public:
 
   }
 
+  void try_to_draw_window() {
+
+    want_draw = true;
+
+    return;
+
+  }
+
+  void window_drawing_helper() {
+
+    while(!shutdown) {
+
+      if(draw_cooldown){
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	draw_cooldown = false;
+      }
+      if(!draw_cooldown && want_draw) {
+	draw_cooldown = true;
+	want_draw = false;
+	draw_active_layout();}
+    }
+
+    return;
+    
+  }
+  
   void execute_button_functionality(unsigned int callback_id) {
     // space to link your callback variables to functions of your code!
     // the callback values can then be linked to elements in you gui config file!
@@ -88,8 +126,16 @@ public:
 
       XSetForeground(display, gc, 0xFF0000);
 
-      draw_active_layout();
+      try_to_draw_window();
       
+      break;
+      
+    case 2 :
+      
+      std::cout << "shutting down..." << std::endl;
+
+      shutdown = true;
+
       break;
       
       
@@ -130,6 +176,14 @@ public:
     return;
 
   }
+
+  void load_from_file(std::string toload) {
+
+    active_layout = deserialize_layout_file(toload);
+    
+    return;
+
+  }
   
   void window_runtime_helper(XFontStruct* font) {
     
@@ -139,33 +193,12 @@ public:
     int cur_line = 10;
     
     XSetFont(display, gc, font->fid);
+
+    std::thread draw_helper(&x_gui::window_drawing_helper,this);
     
     while(!shutdown) {
       
       XNextEvent(display, &event);
-      
-      if (event.type == Expose | event.type == ConfigureNotify ) {
-
-	std::cout << "Window needs to be redrawn.." << std::endl;       
-
-	draw_active_layout();
-
-	XFlush(display);
-	
-      }
-
-      if(event.type == MotionNotify) {	
-	
-	Window root;
-	Window child;
-	
-	unsigned int psychiose;
-
-	int mouse_x,mouse_y,win_x,win_y;
-	
-	XQueryPointer(display, window, &root, &child, &win_x, &win_y, &mouse_x, &mouse_y, &psychiose );
-	
-      }
 
       if (event.type == ButtonPress && event.xbutton.button == 1) { 
 
@@ -185,18 +218,30 @@ public:
 	KeySym keysym;
 
 	XLookupString(&event.xkey, buffer, sizeof(buffer), &keysym, NULL);
-	printf("Key pressed: %c\n", buffer[0]);
+	std::cout << "key pressed: " << buffer[0] << std::endl;
 	
 	if(buffer[0] == 'x') {
-
+	  
 	  std::cout << "shutting down!" << std::endl;
+	  shutdown = true;
 	  break;
 	  
 	}
 	
       }
+
+      
+      if (event.type == Expose | event.type == ConfigureNotify | event.type == MotionNotify) {
+	
+	try_to_draw_window();
+	
+	XFlush(display);
+	
+      }
       
     }
+
+    draw_helper.join();
     
     return;
 
@@ -266,15 +311,16 @@ public:
     std::cout << "done... adding elements" << std::endl;
 
     //load a layout via file dynamically:
-    active_layout = deserialize_layout_file("layouts/main_layout");
+    load_from_file("layouts/main_layout");
 
     //or statically declare your layout, in case you dont wanna change it!
     add_element(active_layout, BUTTON , 10, 70, 20 , 100, "i was statically declared!", 0);
     add_element(active_layout, BUTTON , 10, 100, 20 , 100, "me too :D - click me for red", 1);
-      
+    add_element(active_layout, BUTTON , 10, 130, 20 , 100, "im a callback example too! click me to close the window!", 2);
+    
     std::cout << "done! " << std::endl;
-
-    draw_active_layout();
+    
+    try_to_draw_window();
     
     //================================= WINDOW HANDLER =================================
     
