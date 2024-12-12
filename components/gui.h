@@ -213,11 +213,9 @@ public:
                 
       if (event.type == KeyPress) {
 	
-	char buffer[1];
+	char buffer[2];
 
-	KeySym keysym;
-
-	XLookupString(&event.xkey, buffer, sizeof(buffer), &keysym, NULL);
+	XLookupString(&event.xkey, buffer, sizeof(buffer), NULL, NULL);
 	std::cout << "key pressed: " << buffer[0] << std::endl;
 	
 	if(buffer[0] == 'x') {
